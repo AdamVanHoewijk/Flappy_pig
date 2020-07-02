@@ -2,7 +2,7 @@ import pygame
 import random
 
 pygame.init()
-
+pygame.font.init()
 # Declared constants
 DISPLAY_HEIGHT = 800
 DISPLAY_WIDTH = 600
@@ -46,6 +46,8 @@ running = True
 # Variable to keep track and time when a new pipe should be made
 pipe_displayed = False
 
+# Font for text
+font = pygame.font.Font('freesansbold.ttf', 32)
 
 # Draws the pig at the given x y position and rotates image based on velocity
 class Pig(pygame.sprite.Sprite):
@@ -62,7 +64,7 @@ class Pig(pygame.sprite.Sprite):
         self.image = pig_images[count_loop[int(pygame.time.get_ticks() / 100) % 4]]
         if (velocity > 8):
             self.image = pig_images[1]
-        self.image = pygame.transform.rotate(self.image, velocity * -2)
+        self.image = pygame.transform.rotate(self.image, -velocity)
         #self.rect = self.image.get_rect()
 
         velocity += GRAVITY
@@ -147,20 +149,11 @@ while running:
     gameDisplay.fill((0,255,255))
     gameDisplay.blit(background_img,(0,0))
 
-
-
-
     sprites.draw(gameDisplay)
 
-    font = pygame.font.Font('freesansbold.ttf', 32)
-    text = font.render('GeeksForGeeks', True, (255, 0, 0), (0, 244, 0))
-    textRect = text.get_rect()
-    textRect.center = (DISPLAY_WIDTH / 2, DISPLAY_HEIGHT / 2)
+    textsurface = font.render(str(score), False, (255,255,255))
+    gameDisplay.blit(textsurface,(DISPLAY_WIDTH//2 - textsurface.get_width(), int(DISPLAY_HEIGHT*0.05)))
 
-
-
-
-    print(score)
     pygame.display.update()
     clock.tick(60)
 
