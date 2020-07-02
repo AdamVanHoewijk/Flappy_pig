@@ -1,3 +1,3 @@
-# Flappy_pig
+# Flappy pig
 
-A flappy bird game written in python using pygame
+A flappy bird game written in python using pygame.
