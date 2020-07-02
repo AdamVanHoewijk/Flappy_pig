@@ -6,18 +6,18 @@ pygame.font.init()
 # Declared constants
 DISPLAY_HEIGHT = 800
 DISPLAY_WIDTH = 600
-GRAVITY = 0.75
+GRAVITY = 0.8
 JUMP_VELOCITY = -15
 PIPE_VELOCITY = 2
 PIPE_FREQUENCY = 1200
 PIPE_GAP = 0.28 * DISPLAY_HEIGHT
 
-# Load images and create display
+# Creates display
 gameDisplay = pygame.display.set_mode((DISPLAY_WIDTH, DISPLAY_HEIGHT))
 pygame.display.set_caption('Flappy bird')
 clock = pygame.time.Clock()
 
-#Loading pig images and scaling them
+#Loads images
 pig_images = [pygame.image.load('pig1.png'), pygame.image.load('pig2.png'), pygame.image.load('pig3.png')]
 for x in range(3):
     size = pig_images[x].get_rect().size
@@ -28,9 +28,6 @@ pipe_image = pygame.transform.scale(pipe_image, tuple([int(0.6 * x) for x in pip
 
 background_img = pygame.image.load('background.png')
 
-# Describes the order in which the different pig images should appear
-count_loop = (0, 1, 2, 1)
-
 # Starting position of pig
 y = int(DISPLAY_HEIGHT * 0.5)
 x = int(DISPLAY_WIDTH * 0.1)
@@ -38,6 +35,9 @@ x = int(DISPLAY_WIDTH * 0.1)
 # Current velocity of pig
 velocity = 0
 score = 0
+
+# Keeps track of previous scores
+high_score = 0
 
 # Variables to control game flow
 paused = False
@@ -51,9 +51,10 @@ font = pygame.font.Font('freesansbold.ttf', 32)
 
 # Draws the pig at the given x y position and rotates image based on velocity
 class Pig(pygame.sprite.Sprite):
-
+    # Describes the order in which the different pig images should appear
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
+        self.count_loop = (0, 1, 2, 1)
         self.image = pig_images[0]
         self.rect = self.image.get_rect()
         self.rect.center = (int(DISPLAY_WIDTH*0.1), int(DISPLAY_HEIGHT/2))
@@ -61,7 +62,7 @@ class Pig(pygame.sprite.Sprite):
     def update(self):
         global velocity
         global paused
-        self.image = pig_images[count_loop[int(pygame.time.get_ticks() / 100) % 4]]
+        self.image = pig_images[self.count_loop[int(pygame.time.get_ticks() / 100) % 4]]
         if (velocity > 8):
             self.image = pig_images[1]
         self.image = pygame.transform.rotate(self.image, -velocity)
@@ -108,6 +109,19 @@ class Pipe(pygame.sprite.Sprite):
                 self.scored = True
                 score += 1
 
+def restart():
+    global high_score
+    global pig
+    global score
+    global paused
+    sprites.empty()
+    pig = Pig()
+    sprites.add(pig)
+    if score > high_score:
+        high_score = score
+    score = 0
+    paused = False
+
 sprites = pygame.sprite.Group()
 pig = Pig()
 sprites.add(pig)
@@ -124,6 +138,8 @@ while running:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
                 velocity = JUMP_VELOCITY
+            elif event.key == pygame.K_r:
+                restart()
 
     # Creates new pipes based on ticks
     a = int(pygame.time.get_ticks() / PIPE_FREQUENCY) % 2
@@ -153,6 +169,10 @@ while running:
 
     textsurface = font.render(str(score), False, (255,255,255))
     gameDisplay.blit(textsurface,(DISPLAY_WIDTH//2 - textsurface.get_width(), int(DISPLAY_HEIGHT*0.05)))
+
+    textsurface = font.render("High score: "+str(high_score), False, (255, 0, 0))
+    gameDisplay.blit(textsurface, (int(DISPLAY_WIDTH*0.05), int(DISPLAY_HEIGHT * 0.05)))
+
 
     pygame.display.update()
     clock.tick(60)
