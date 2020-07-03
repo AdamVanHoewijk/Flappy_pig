@@ -54,30 +54,37 @@ class Pig(pygame.sprite.Sprite):
     # Describes the order in which the different pig images should appear
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
+        self.velocity = 0
         self.count_loop = (0, 1, 2, 1)
         self.image = pig_images[0]
         self.rect = self.image.get_rect()
-        self.rect.center = (int(DISPLAY_WIDTH*0.1), int(DISPLAY_HEIGHT/2))
+        self.rect.topleft = (int(DISPLAY_WIDTH*0.1), int(DISPLAY_HEIGHT/2))
+
+    def jump(self):
+        self.velocity = JUMP_VELOCITY
 
     def update(self):
-        global velocity
-        global paused
-        self.image = pig_images[self.count_loop[int(pygame.time.get_ticks() / 100) % 4]]
-        if (velocity > 8):
-            self.image = pig_images[1]
-        self.image = pygame.transform.rotate(self.image, -velocity)
-        #self.rect = self.image.get_rect()
 
-        velocity += GRAVITY
-        self.rect.y += int(velocity)
+        global paused
+        global pipe_sprites
+        self.image = pig_images[self.count_loop[int(pygame.time.get_ticks() / 100) % 4]]
+        if (self.velocity > 8):
+            self.image = pig_images[1]
+        self.image = pygame.transform.rotate(self.image, - self.velocity * 1.4)
+        self.mask = pygame.mask.from_surface(self.image)
+        self.velocity += GRAVITY
+        self.rect.y += int(self.velocity)
 
         if (self.rect.top <= 0):
-            velocity = 1
+            self.velocity = 1
         if (self.rect.bottom >= DISPLAY_HEIGHT):
-            velocity = -3
+            self.velocity = -3
 
-        if len(pygame.sprite.spritecollide(self, sprites, False)) > 1:
-            paused = True
+        if pygame.sprite.spritecollide(self, pipe_sprites, False):
+            if pygame.sprite.spritecollide(self, pipe_sprites, False, pygame.sprite.collide_mask):
+                paused = True
+        #if len(pygame.sprite.spritecollide(self, pipe_sprites, False)) != 0:
+        #    paused = True
 
 
 # The sprite of a pipe
@@ -86,6 +93,7 @@ class Pipe(pygame.sprite.Sprite):
     def __init__(self, y, inverted, follow_pipe = None):
         pygame.sprite.Sprite.__init__(self)
         self.follow_pipe = follow_pipe
+        self.inverted = inverted
         if inverted:
             self.image = pygame.transform.rotate(pipe_image, 180)
             self.rect = self.image.get_rect()
@@ -97,11 +105,20 @@ class Pipe(pygame.sprite.Sprite):
             self.rect = self.image.get_rect()
             self.rect.topleft = (DISPLAY_WIDTH, y)
 
+    def collide(self,pig):
+        pig_mask = pygame.mask.from_surface(pig.image)
+        pipe_mask = pygame.mask.from_surface(self.image)
+        offset = (self.rect.center[0] - pig.rect.center[0], round(self.rect.bottom - pig.rect.bottom))
+        overlap = pipe_mask.overlap(pig_mask, offset)
 
+        if overlap:
+            return True
+        return False
 
     def update(self):
         global pig
         global score
+        global paused
         self.rect.x -= PIPE_VELOCITY
         if self.follow_pipe != None:
             self.rect.x = self.follow_pipe.rect.x
@@ -111,20 +128,21 @@ class Pipe(pygame.sprite.Sprite):
 
 def restart():
     global high_score
-    global pig
     global score
     global paused
-    sprites.empty()
+    pipe_sprites.empty()
+    pig_sprites.empty()
     pig = Pig()
-    sprites.add(pig)
+    pig_sprites.add(pig)
     if score > high_score:
         high_score = score
     score = 0
     paused = False
 
-sprites = pygame.sprite.Group()
+pipe_sprites = pygame.sprite.Group()
+pig_sprites = pygame.sprite.Group()
 pig = Pig()
-sprites.add(pig)
+pig_sprites.add(pig)
 # Main loop
 while running:
     # Checks for button presses and acts upon that action
@@ -137,7 +155,8 @@ while running:
         # If space is pressed, give pig jump velocity
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
-                velocity = JUMP_VELOCITY
+                for pig in pig_sprites:
+                    pig.jump()
             elif event.key == pygame.K_r:
                 restart()
 
@@ -147,32 +166,33 @@ while running:
         pipe_displayed = True
         pipe_y_pos = int(random.random() * DISPLAY_HEIGHT * 0.5 + 250)
         pipe = Pipe(pipe_y_pos, False)
-        sprites.add(pipe)
-        sprites.add(Pipe(pipe_y_pos - PIPE_GAP, True, pipe))
+        pipe_sprites.add(pipe)
+        pipe_sprites.add(Pipe(pipe_y_pos - PIPE_GAP, True, pipe))
     elif a == 0:
         pipe_displayed = False
 
-    for sprite in sprites:
+    for sprite in pipe_sprites:
         if sprite.rect.right <= 0:
-            sprites.remove(sprite)
+            pipe_sprites.remove(sprite)
 
 
     # Updates sprites
     if not paused:
-        sprites.update()
+        pipe_sprites.update()
+        pig_sprites.update()
 
     # Draws display
     gameDisplay.fill((0,255,255))
     gameDisplay.blit(background_img,(0,0))
 
-    sprites.draw(gameDisplay)
+    pipe_sprites.draw(gameDisplay)
+    pig_sprites.draw(gameDisplay)
 
     textsurface = font.render(str(score), False, (255,255,255))
     gameDisplay.blit(textsurface,(DISPLAY_WIDTH//2 - textsurface.get_width(), int(DISPLAY_HEIGHT*0.05)))
 
     textsurface = font.render("High score: "+str(high_score), False, (255, 0, 0))
     gameDisplay.blit(textsurface, (int(DISPLAY_WIDTH*0.05), int(DISPLAY_HEIGHT * 0.05)))
-
 
     pygame.display.update()
     clock.tick(60)
