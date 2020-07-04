@@ -1,3 +1,5 @@
+import os
+import neat
 import pygame
 import random
 import Sprites
@@ -8,15 +10,14 @@ class Game:
         self.high_score = 0
         self.DISPLAY_HEIGHT = 800
         self.DISPLAY_WIDTH = 600
-        self.GRAVITY = 0.8
-        self.JUMP_VELOCITY = -15
+        self.GRAVITY = 1.2
+        self.JUMP_VELOCITY = -16
         self.PIPE_VELOCITY = 2
-        self.PIPE_FREQUENCY = 250
-        self.PIPE_GAP = 0.28 * self.DISPLAY_HEIGHT
+        self.PIPE_FREQUENCY = 270
+        self.PIPE_GAP = 0.24 * self.DISPLAY_HEIGHT
         self.pig_sprites = pygame.sprite.Group()
         self.pipe_sprites = pygame.sprite.Group()
-        self.pig_sprites.add(Sprites.Pig(self))
-
+        self.score = 0
         self.background_img = pygame.image.load('background.png')
         self.high_score = 0
         self.paused = False
@@ -24,7 +25,7 @@ class Game:
         pygame.init()
         pygame.font.init()
         self.gameDisplay = pygame.display.set_mode((self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT))
-        pygame.display.set_caption('Flappy bird')
+        pygame.display.set_caption('Flappy pig')
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font('freesansbold.ttf', 32)
 
@@ -40,59 +41,127 @@ class Game:
         pipe = Sprites.Pipe(pipe_y_pos, self)
         self.pipe_sprites.add(pipe)
         self.pipe_sprites.add(Sprites.Pipe(pipe_y_pos - self.PIPE_GAP, self, pipe))
+generation = 0
+def main(genomes, config):
+    global generation
+    generation += 1
+    nets = []
+    pigs = []
+    ge = []
+    game = Game()
+    clock_tick = 60
 
-    def main(self):
+    for _, g in genomes:
+        net = neat.nn.FeedForwardNetwork.create(g, config)
+        nets.append(net)
+        pig = Sprites.Pig(game)
+        pigs.append(pig)
+        game.pig_sprites.add(pig)
+        g.fitness = 0
+        ge.append(g)
 
-        self.add_pipe()
-        # Main loop
-        while self.running:
 
-            alive_list = []
-            for pig in self.pig_sprites:
-                alive_list.append(pig.alive)
-            if not any(alive_list):
-                self.paused = True
-            # Creates new pipes
-            if self.pipe_sprites.sprites()[-1].rect.left <= self.DISPLAY_WIDTH - self.PIPE_FREQUENCY:
-                self.add_pipe()
 
-            for sprite in self.pipe_sprites:
-                if sprite.rect.right <= 0:
-                    self.pipe_sprites.remove(sprite)
+    game.add_pipe()
+    # Main loop
+    while game.running:
+        alive_list = []
+        for pig in game.pig_sprites:
+            alive_list.append(pig.alive)
+        if not any(alive_list):
+            game.paused = True
 
-            # Checks for button presses and acts upon that action
-            for event in pygame.event.get():
+        if len(pigs) == 0:
+            break
+            game.running = False
 
-                # Ends game if exit is pressed
-                if event.type == pygame.QUIT:
-                    self.running = False
+        # Creates new pipes
+        if game.pipe_sprites.sprites()[-1].rect.left <= game.DISPLAY_WIDTH - game.PIPE_FREQUENCY:
+            game.add_pipe()
 
-                # If space is pressed, give pig jump velocity
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
-                        for pig in self.pig_sprites:
-                            pig.jump()
-                    elif event.key == pygame.K_r:
-                        self.restart()
+        # Removes offscreen pipes
+        for sprite in game.pipe_sprites:
+            if sprite.rect.right <= 0:
+                game.pipe_sprites.remove(sprite)
 
-            # Updates sprites
-            if not self.paused:
-                self.pipe_sprites.update()
-                self.pig_sprites.update()
+        # Checks for button presses and acts upon that action
+        for event in pygame.event.get():
+            # Ends game if exit is pressed
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
 
-            # Draws display
-            self.gameDisplay.fill((0,255,255))
-            self.gameDisplay.blit(self.background_img,(0,0))
+            if event.type == pygame.KEYDOWN:
+                if clock_tick == 1000:
+                    clock_tick = 60
+                else:
+                    clock_tick = 1000
 
-            self.pipe_sprites.draw(self.gameDisplay)
-            self.pig_sprites.draw(self.gameDisplay)
 
-            textsurface = self.font.render("High score: "+str(self.high_score), False, (255, 0, 0))
-            self.gameDisplay.blit(textsurface, (int(self.DISPLAY_WIDTH*0.05), int(self.DISPLAY_HEIGHT * 0.05)))
 
-            pygame.display.update()
-            self.clock.tick(60)
+        # Updates sprites
+        if not game.paused:
+            game.pipe_sprites.update()
+            game.pig_sprites.update()
 
-        pygame.quit()
-game = Game()
-game.main()
+        for pipe in game.pipe_sprites:
+            if not pipe.passed and pipe.follow_pipe != None:
+                current_pipe = pipe
+                for x, pig in enumerate(pigs):
+
+                    ge[x].fitness += 0.1 + pig.adjust_fitness()
+
+                    outputs = nets[x].activate((pipe.rect.bottom - pig.rect.top
+                                                , pipe.follow_pipe.rect.top - pig.rect.bottom
+                                                ))
+                    if outputs[0] > 0:
+                        pig.jump()
+                break
+
+        for x , pig in enumerate(pigs):
+            if pig.collided():
+                pigs.pop(x)
+                nets.pop(x)
+                ge.pop(x)
+                game.pig_sprites.remove(pig)
+
+
+
+
+        # Draws display
+        game.gameDisplay.fill((255,255,255))
+        game.gameDisplay.blit(game.background_img,(0,0))
+
+        game.pipe_sprites.draw(game.gameDisplay)
+        game.pig_sprites.draw(game.gameDisplay)
+
+        textsurface = game.font.render("Score: "+str(game.score), False, (255, 255, 255))
+        game.gameDisplay.blit(textsurface, (int(game.DISPLAY_WIDTH - textsurface.get_width()-20), int(game.DISPLAY_HEIGHT * 0.05)))
+
+        textsurface = game.font.render("Generation: " + str(generation), False, (255, 255, 255))
+        game.gameDisplay.blit(textsurface,
+                              (int(game.DISPLAY_WIDTH - textsurface.get_width() - 20), int(game.DISPLAY_HEIGHT * 0.1)))
+
+        if clock_tick == 60:
+            textsurface = game.font.render("Press button to speed up", False, (255, 255, 255))
+            game.gameDisplay.blit(textsurface,
+                                  (int(game.DISPLAY_WIDTH//2 - textsurface.get_width()//2), int(game.DISPLAY_HEIGHT * 0.95)))
+
+        pygame.display.update()
+        game.clock.tick(clock_tick)
+
+
+def run(config_path):
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                config_path)
+    p = neat.Population(config)
+    p.add_reporter(neat.StdOutReporter(True))
+    p.add_reporter(neat.StatisticsReporter())
+    winner = p.run(main,100)
+
+
+
+
+local_dir = os.path.dirname(__file__)
+run(os.path.join(local_dir, "config file.txt"))
