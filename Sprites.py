@@ -80,8 +80,8 @@ class Pipe(pygame.sprite.Sprite):
         if self.follow_pipe != None:
             self.rect.x = self.follow_pipe.rect.x
             for pig in self.game.pig_sprites:
-                if self.rect.x <= pig.rect.x and not self.scored:
+                if self.rect.right <= pig.rect.left and not self.scored:
                     self.scored = True
                     self.game.score += 1
                     pig.extra_fitness += 5
-                    self.passed = False
+                    self.passed = True

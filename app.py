@@ -11,9 +11,9 @@ class Game:
         self.DISPLAY_HEIGHT = 800
         self.DISPLAY_WIDTH = 600
         self.GRAVITY = 1.2
-        self.JUMP_VELOCITY = -16
+        self.JUMP_VELOCITY = -17
         self.PIPE_VELOCITY = 2
-        self.PIPE_FREQUENCY = 270
+        self.PIPE_FREQUENCY = 220
         self.PIPE_GAP = 0.24 * self.DISPLAY_HEIGHT
         self.pig_sprites = pygame.sprite.Group()
         self.pipe_sprites = pygame.sprite.Group()
@@ -27,7 +27,7 @@ class Game:
         self.gameDisplay = pygame.display.set_mode((self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT))
         pygame.display.set_caption('Flappy pig')
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.Font('freesansbold.ttf', 32)
+        self.font = pygame.font.SysFont('arial', 32)
 
     def restart(self):
         self.pipe_sprites.empty()
@@ -92,10 +92,10 @@ def main(genomes, config):
                 exit()
 
             if event.type == pygame.KEYDOWN:
-                if clock_tick == 1000:
+                if clock_tick == 180:
                     clock_tick = 60
                 else:
-                    clock_tick = 1000
+                    clock_tick = 180
 
 
 
@@ -112,8 +112,8 @@ def main(genomes, config):
                     ge[x].fitness += 0.1 + pig.adjust_fitness()
 
                     outputs = nets[x].activate((pipe.rect.bottom - pig.rect.top
-                                                , pipe.follow_pipe.rect.top - pig.rect.bottom
-                                                ))
+                                                , pipe.follow_pipe.rect.top - pig.rect.bottom))
+
                     if outputs[0] > 0:
                         pig.jump()
                 break
@@ -159,9 +159,6 @@ def run(config_path):
     p.add_reporter(neat.StdOutReporter(True))
     p.add_reporter(neat.StatisticsReporter())
     winner = p.run(main,100)
-
-
-
 
 local_dir = os.path.dirname(__file__)
 run(os.path.join(local_dir, "config file.txt"))
